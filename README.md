@@ -1,12 +1,72 @@
-# stevo_jobgarages
+# IMPORTANT
+
+### This is a fork / remake / improvement of Stevo Job Garages. Full credit goes to them.
+
+- https://github.com/stevoscriptsteam/stevo_jobgarages
+
+
+# ag_jobgarages
 ## Job Garages! 🚗🏢
-Job-based garages and vehicle customisation.
+Job-based garages and vehicle customisation with extensive script compatibility.
 
 Easy to configure, allowing you to completely customise where your garage menu is placed, where your customisation points can be accessed and where the vehicle spawns on selection. You can also break the garage up into separate categories, locking vehicles behind ranks and roles too. Simple design allows for ease of access by all players. 
+
+## ✨ New Features
+- **Extensive Script Compatibility**: Support for multiple vehicle keys, fuel, notification, text UI, and progress systems
+- **Easy Configuration**: All compatibility settings in one place at the top of `config.lua`
+- **Modular Design**: Easily add your own custom integrations
+- **Future-Proof**: Prepared for additional features like target system support
 
 ﻿
 - :bank: ﻿﻿﻿ Supported frameworks: ESX, QBCore & Qbox
 - :speaking_head:  Locales: English, Español & Dutch
+
+## 🔧 Compatible Systems
+
+### Vehicle Keys
+- Wasabi Car Lock
+- QB-Core/QBX Vehicle Keys
+- Renewed Vehicle Keys
+- CD Garage
+- Quasar Vehicle Keys
+- Custom (add your own)
+
+### Fuel Systems
+- OX Fuel
+- Legacy Fuel
+- PS Fuel
+- okok Fuel
+- CDN Fuel
+- ND Fuel
+- Custom (add your own)
+
+### Notifications
+- Stevo Lib
+- OX Lib
+- QB-Core
+- ESX
+- Mythic Notify
+- okok Notify
+- Custom (add your own)
+
+### Text UI
+- OX Lib
+- QB-Core DrawText
+- ESX Help Notification
+- okok Text UI
+- CD DrawText UI
+- Custom (add your own)
+
+### Progress Bars
+- OX Lib (Circle/Bar)
+- QB-Core
+- ESX
+- Mythic Progress Bar
+- Custom (add your own)
+
+## 📖 Configuration
+
+See [CONFIGURATION.md](CONFIGURATION.md) for detailed setup instructions and examples for different frameworks.
 
 Follow our installation guide: [Click Here](https://docs.stevoscripts.com/free-scripts/stevo_jobgarages)
 ﻿
@@ -16,11 +76,3 @@ Follow our installation guide: [Click Here](https://docs.stevoscripts.com/free-s
 > <br>
 > **[ox_lib](https://github.com/overextended/ox_lib/releases/tag/v3.24.0)**
 
-Preview: [Click Here](https://www.youtube.com/watch?v=aYWzjnSFW0I)
-<br>
-Discord: [Click Here](https://discord.gg/stevoscripts)
-<br>
-**Check our our paid releases!**: [Click Here](https://store.stevoscripts.com/)
-
-## Support us by checking out our Featured Paid Resource 
-[![FORUM](https://github.com/user-attachments/assets/64ea1a30-f5f3-40bb-9ba0-7e309ff67d90)](https://store.stevoscripts.com/package/6448032)

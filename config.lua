@@ -1,6 +1,62 @@
+--[[
+    ╔═══════════════════════════════════════════════════════════╗
+    ║              AG JOB GARAGES - CONFIGURATION               ║
+    ╠═══════════════════════════════════════════════════════════╣
+    ║  Easy configuration for multiple script compatibility     ║
+    ║                                                           ║
+    ║  📖 Full documentation: See CONFIGURATION.md             ║
+    ║                                                           ║
+    ║  🔧 To add custom scripts:                               ║
+    ║     1. Set the system to 'custom' below                  ║
+    ║     2. Scroll down to the function section               ║
+    ║     3. Find the 'custom' section in the function         ║
+    ║     4. Add your export/event/logic there                 ║
+    ║                                                           ║
+    ║  💡 Tip: Use CTRL+F to search for "custom" to find       ║
+    ║     all the places where you can add your scripts        ║
+    ╚═══════════════════════════════════════════════════════════╝
+--]]
+
 return {
 
-    progressCircle = true, -- If lib progressCircle should be used instead of progressBar
+    -- ====================================
+    -- SCRIPT COMPATIBILITY SETTINGS
+    -- ====================================
+    
+    -- Framework
+    -- Options: 'auto', 'esx', 'qbcore', 'qbx', 'ox_core', 'custom'
+    -- 'auto' will automatically detect your framework
+    framework = 'auto',
+    
+    -- Vehicle Keys System
+    -- Options: 'wasabi_carlock', 'qb-vehiclekeys', 'qbx_vehiclekeys', 'Renewed-VehicleKeys', 'cd_garage', 'qs-vehiclekeys', 'custom'
+    vehicleKeysSystem = 'wasabi_carlock',
+    
+    -- Fuel System
+    -- Options: 'ox_fuel', 'LegacyFuel', 'ps-fuel', 'okokFuel', 'cdn-fuel', 'nd_fuel', 'custom', 'none'
+    fuelSystem = 'ox_fuel',
+    
+    -- Notification System
+    -- Options: 'ox_lib', 'qb-core', 'esx', 'mythic_notify', 'okokNotify', 'custom'
+    notifySystem = 'ox_lib',
+    
+    -- Text UI System
+    -- Options: 'ox_lib', 'qb-core', 'esx', 'okokTextUI', 'cd_drawtextui', 'custom'
+    textUISystem = 'ox_lib',
+    
+    -- Progress System
+    -- Options: 'ox_lib_circle', 'ox_lib_bar', 'qb-core', 'esx', 'mythic_progbar', 'custom'
+    progressSystem = 'ox_lib_circle',
+    
+    -- Target System (if you want to add target support in the future)
+    -- Options: 'ox_target', 'qb-target', 'qtarget', 'interact', 'none'
+    targetSystem = 'none',
+
+    -- ====================================
+    -- GENERAL SETTINGS
+    -- ====================================
+
+    progressCircle = true, -- If lib progressCircle should be used instead of progressBar (DEPRECATED - use progressSystem above)
     openDistance = 3, -- Open distance on foot
     vehicleOpenDistance = 7, -- Open Distance in vehicle
     minimumPlateGrade = 17, -- Minimum grade to change plate
@@ -410,24 +466,416 @@ return {
 
 
 
-    
+    -- ====================================
+    -- CUSTOM INTEGRATION FUNCTIONS
+    -- ====================================
 
-    giveVehicleKeys = function(entity, plate)
-        -- Wasabi Carlock
-        exports.wasabi_carlock:GiveKey(plate)
+    -- Detect Framework (Auto-detection)
+    -- Returns: 'esx', 'qbcore', 'qbx', 'ox_core', or nil
+    detectFramework = function()
+        if config.framework ~= 'auto' then
+            return config.framework
+        end
         
-        -- qb/qbx_vehiclekeys
-        TriggerEvent("vehiclekeys:client:SetOwner", plate)
-
-        --
+        -- Check for QBX first (it has QBCore global too)
+        if GetResourceState('qbx_core') == 'started' then
+            return 'qbx'
+        end
+        
+        -- Check for QBCore
+        if GetResourceState('qb-core') == 'started' then
+            return 'qbcore'
+        end
+        
+        -- Check for ESX
+        if GetResourceState('es_extended') == 'started' then
+            return 'esx'
+        end
+        
+        -- Check for OX Core
+        if GetResourceState('ox_core') == 'started' then
+            return 'ox_core'
+        end
+        
+        return nil
     end,
 
-    removeVehicleKeys = function(entity, plate)
-        -- Wasabi Carlock
-        exports.wasabi_carlock:RemoveKey(plate)
+    -- Get Player Job Information
+    -- Returns: { name = 'police', grade = 5, isJob = true } or { name = 'ballas', grade = 2, isJob = false }
+    getPlayerJob = function()
+        local framework = config.detectFramework()
         
-        -- qb/qbx_vehiclekeys
-        TriggerEvent("vehiclekeys:client:RemoveOwner", plate)
+        if framework == 'esx' then
+            local ESX = exports['es_extended']:getSharedObject()
+            local playerData = ESX.GetPlayerData()
+            
+            -- Check job first
+            if playerData.job and playerData.job.name then
+                return {
+                    name = playerData.job.name,
+                    grade = playerData.job.grade or 0,
+                    isJob = true
+                }
+            end
+            
+            -- ESX doesn't have gangs by default, but some servers add it
+            if playerData.gang and playerData.gang.name then
+                return {
+                    name = playerData.gang.name,
+                    grade = playerData.gang.grade or 0,
+                    isJob = false
+                }
+            end
+            
+        elseif framework == 'qbcore' then
+            local QBCore = exports['qb-core']:GetCoreObject()
+            local playerData = QBCore.Functions.GetPlayerData()
+            
+            -- Check job
+            if playerData.job and playerData.job.name then
+                return {
+                    name = playerData.job.name,
+                    grade = playerData.job.grade.level or 0,
+                    isJob = true
+                }
+            end
+            
+            -- Check gang
+            if playerData.gang and playerData.gang.name then
+                return {
+                    name = playerData.gang.name,
+                    grade = playerData.gang.grade.level or 0,
+                    isJob = false
+                }
+            end
+            
+        elseif framework == 'qbx' then
+            local player = exports.qbx_core:GetPlayerData()
+            
+            -- Check job
+            if player.job and player.job.name then
+                return {
+                    name = player.job.name,
+                    grade = player.job.grade.level or 0,
+                    isJob = true
+                }
+            end
+            
+            -- Check gang
+            if player.gang and player.gang.name then
+                return {
+                    name = player.gang.name,
+                    grade = player.gang.grade.level or 0,
+                    isJob = false
+                }
+            end
+            
+        elseif framework == 'ox_core' then
+            local player = Ox.GetPlayer()
+            
+            if player then
+                local groups = player.getGroups()
+                -- OX Core uses groups, find the highest grade group
+                for groupName, groupGrade in pairs(groups) do
+                    return {
+                        name = groupName,
+                        grade = groupGrade,
+                        isJob = true
+                    }
+                end
+            end
+            
+        elseif framework == 'custom' then
+            -- Add your custom framework logic here
+            -- Example:
+            -- local MyFramework = exports['my_framework']:GetCore()
+            -- local playerData = MyFramework.GetPlayerData()
+            -- return {
+            --     name = playerData.job.name,
+            --     grade = playerData.job.grade,
+            --     isJob = true
+            -- }
+        end
+        
+        -- Default fallback
+        return {
+            name = 'unemployed',
+            grade = 0,
+            isJob = true
+        }
+    end,
+
+    -- Give Vehicle Keys Function
+    -- Automatically uses the system specified in vehicleKeysSystem
+    -- Add your custom key system here if using 'custom'
+    giveVehicleKeys = function(entity, plate)
+        local system = config.vehicleKeysSystem
+        
+        if system == 'wasabi_carlock' then
+            exports.wasabi_carlock:GiveKey(plate)
+            
+        elseif system == 'qb-vehiclekeys' or system == 'qbx_vehiclekeys' then
+            TriggerEvent("vehiclekeys:client:SetOwner", plate)
+            
+        elseif system == 'Renewed-VehicleKeys' then
+            exports['Renewed-VehicleKeys']:GiveVehicleKey(plate)
+            
+        elseif system == 'cd_garage' then
+            TriggerEvent('cd_garage:AddKeys', plate)
+            
+        elseif system == 'qs-vehiclekeys' then
+            exports['qs-vehiclekeys']:GiveKeys(plate)
+            
+        elseif system == 'custom' then
+            -- Add your custom vehicle keys give logic here
+            -- Example:
+            -- exports['your_keys_script']:GiveKey(plate)
+            
+        end
+    end,
+
+    -- Remove Vehicle Keys Function
+    -- Automatically uses the system specified in vehicleKeysSystem
+    -- Add your custom key system here if using 'custom'
+    removeVehicleKeys = function(entity, plate)
+        local system = config.vehicleKeysSystem
+        
+        if system == 'wasabi_carlock' then
+            exports.wasabi_carlock:RemoveKey(plate)
+            
+        elseif system == 'qb-vehiclekeys' or system == 'qbx_vehiclekeys' then
+            TriggerEvent("vehiclekeys:client:RemoveOwner", plate)
+            
+        elseif system == 'Renewed-VehicleKeys' then
+            exports['Renewed-VehicleKeys']:RemoveVehicleKey(plate)
+            
+        elseif system == 'cd_garage' then
+            TriggerEvent('cd_garage:RemoveKeys', plate)
+            
+        elseif system == 'qs-vehiclekeys' then
+            exports['qs-vehiclekeys']:RemoveKeys(plate)
+            
+        elseif system == 'custom' then
+            -- Add your custom vehicle keys remove logic here
+            -- Example:
+            -- exports['your_keys_script']:RemoveKey(plate)
+            
+        end
+    end,
+
+    -- Set Vehicle Fuel Function
+    -- Automatically uses the system specified in fuelSystem
+    -- Add your custom fuel system here if using 'custom'
+    setVehicleFuel = function(vehicle, amount)
+        local system = config.fuelSystem
+        
+        if system == 'ox_fuel' then
+            -- ox_fuel uses statebag API
+            if Entity and type(Entity) == 'function' then
+                Entity(vehicle).state.fuel = amount
+            end
+            
+        elseif system == 'LegacyFuel' then
+            exports['LegacyFuel']:SetFuel(vehicle, amount)
+            
+        elseif system == 'ps-fuel' then
+            exports['ps-fuel']:SetFuel(vehicle, amount)
+            
+        elseif system == 'okokFuel' then
+            exports['okokFuel']:SetFuel(vehicle, amount)
+            
+        elseif system == 'cdn-fuel' then
+            exports['cdn-fuel']:SetFuel(vehicle, amount)
+            
+        elseif system == 'nd_fuel' then
+            exports['nd_fuel']:SetFuel(vehicle, amount)
+            
+        elseif system == 'custom' then
+            -- Add your custom fuel system logic here
+            -- Example:
+            -- exports['your_fuel_script']:SetFuel(vehicle, amount)
+            
+        elseif system == 'none' then
+            -- No fuel system integration
+            SetVehicleFuelLevel(vehicle, amount)
+        end
+    end,
+
+    -- Send Notification Function
+    -- Automatically uses the system specified in notifySystem
+    -- Add your custom notification system here if using 'custom'
+    sendNotification = function(message, type, duration)
+        local system = config.notifySystem
+        
+        if system == 'ox_lib' then
+            lib.notify({
+                title = 'Garage',
+                description = message,
+                type = type,
+                duration = duration
+            })
+            
+        elseif system == 'qb-core' then
+            TriggerEvent('QBCore:Notify', message, type, duration)
+            
+        elseif system == 'esx' then
+            TriggerEvent('esx:showNotification', message)
+            
+        elseif system == 'mythic_notify' then
+            exports['mythic_notify']:DoHudText(type, message)
+            
+        elseif system == 'okokNotify' then
+            exports['okokNotify']:Alert('Garage', message, duration, type)
+            
+        elseif system == 'custom' then
+            -- Add your custom notification system logic here
+            -- Example:
+            -- exports['your_notify_script']:ShowNotification(message, type)
+            
+        end
+    end,
+
+    -- Show Text UI Function
+    -- Automatically uses the system specified in textUISystem
+    -- Add your custom text UI system here if using 'custom'
+    showTextUI = function(text, icon)
+        local system = config.textUISystem
+        
+        if system == 'ox_lib' then
+            lib.showTextUI(text, {
+                position = 'left-center',
+                icon = icon or 'car',
+                style = {
+                    borderRadius = 8,
+                    backgroundColor = '#0f1117',
+                    color = '#ffffff',
+                    borderColor = '#18baf5'
+                }
+            })
+            
+        elseif system == 'qb-core' then
+            exports['qb-core']:DrawText(text, 'left')
+            
+        elseif system == 'esx' then
+            TriggerEvent('esx:showHelpNotification', text)
+            
+        elseif system == 'okokTextUI' then
+            exports['okokTextUI']:Open(text, 'darkblue', 'left')
+            
+        elseif system == 'cd_drawtextui' then
+            exports['cd_drawtextui']:ShowUI('show', text)
+            
+        elseif system == 'custom' then
+            -- Add your custom text UI system logic here
+            -- Example:
+            -- exports['your_textui_script']:Show(text)
+            
+        end
+    end,
+
+    -- Hide Text UI Function
+    -- Automatically uses the system specified in textUISystem
+    hideTextUI = function()
+        local system = config.textUISystem
+        
+        if system == 'ox_lib' then
+            lib.hideTextUI()
+            
+        elseif system == 'qb-core' then
+            exports['qb-core']:HideText()
+            
+        elseif system == 'esx' then
+            TriggerEvent('esx:hideHelpNotification')
+            
+        elseif system == 'okokTextUI' then
+            exports['okokTextUI']:Close()
+            
+        elseif system == 'cd_drawtextui' then
+            exports['cd_drawtextui']:HideUI()
+            
+        elseif system == 'custom' then
+            -- Add your custom text UI hide logic here
+            -- Example:
+            -- exports['your_textui_script']:Hide()
+            
+        end
+    end,
+
+    -- Progress Bar/Circle Function
+    -- Automatically uses the system specified in progressSystem
+    -- Returns true if completed, false if cancelled
+    showProgress = function(data)
+        local system = config.progressSystem
+        
+        if system == 'ox_lib_circle' then
+            return lib.progressCircle(data)
+            
+        elseif system == 'ox_lib_bar' then
+            return lib.progressBar(data)
+            
+        elseif system == 'qb-core' then
+            local finished = false
+            QBCore.Functions.Progressbar(data.label or 'progress', data.label or 'Loading...', data.duration or 5000, false, true, {
+                disableMovement = data.disable and data.disable.move or false,
+                disableCarMovement = data.disable and data.disable.car or false,
+                disableMouse = data.disable and data.disable.mouse or false,
+                disableCombat = data.disable and data.disable.combat or false,
+            }, {}, {}, {}, function()
+                finished = true
+            end, function()
+                finished = false
+            end)
+            Wait(data.duration or 5000)
+            return finished
+            
+        elseif system == 'esx' then
+            local finished = false
+            TriggerEvent('esx:progressBar', {
+                duration = data.duration or 5000,
+                label = data.label or 'Loading...',
+                useWhileDead = false,
+                canCancel = true,
+                disable = {
+                    move = data.disable and data.disable.move or false,
+                    car = data.disable and data.disable.car or false,
+                    mouse = data.disable and data.disable.mouse or false,
+                    combat = data.disable and data.disable.combat or false,
+                }
+            }, function(status)
+                finished = not status
+            end)
+            Wait(data.duration or 5000)
+            return finished
+            
+        elseif system == 'mythic_progbar' then
+            local finished = false
+            exports['mythic_progbar']:Progress({
+                name = data.label or 'progress',
+                duration = data.duration or 5000,
+                label = data.label or 'Loading...',
+                useWhileDead = false,
+                canCancel = true,
+                controlDisables = {
+                    disableMovement = data.disable and data.disable.move or false,
+                    disableCarMovement = data.disable and data.disable.car or false,
+                    disableMouse = data.disable and data.disable.mouse or false,
+                    disableCombat = data.disable and data.disable.combat or false,
+                }
+            }, function(status)
+                finished = not status
+            end)
+            Wait(data.duration or 5000)
+            return finished
+            
+        elseif system == 'custom' then
+            -- Add your custom progress system logic here
+            -- Should return true if completed, false if cancelled
+            -- Example:
+            -- return exports['your_progress_script']:ShowProgress(data)
+            return true
+        end
+        
+        return true
     end,
     
 }

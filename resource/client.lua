@@ -1,35 +1,22 @@
-if not lib.checkDependency('stevo_lib', '1.7.2') then error('stevo_lib 1.7.2 required for stevo_jobgarages') end
 lib.locale()
 local config = require('config')
-local stevo_lib = exports['stevo_lib']:import()
-local progress = config.progressCircle and lib.progressCircle or lib.progressBar
 local garagePoints = {}
 local textUIShowing = false
 local menuOpen = false
 local spawnCoords = vec4(0.0, 0.0, 0.0, 0.0)
 
--- ============ helpers for ox_lib TextUI ============
+-- ============ helpers for Text UI (using config) ============
 local function showGarageTextUI(title, action)
-    -- Simple, clear prompt. You can tweak position/style if you like.
-    -- Example positions: 'left-center', 'top-center', 'right-center'
-    lib.showTextUI(('%s\n[E] %s'):format(title or 'Garage', action or 'Open'), {
-        position = 'left-center',
-        icon = 'car',
-        style = {
-            borderRadius = 8,
-            backgroundColor = '#0f1117',
-            color = '#ffffff',
-            borderColor = '#18baf5'
-        }
-    })
+    local text = ('%s\n[E] %s'):format(title or 'Garage', action or 'Open')
+    config.showTextUI(text, 'car')
     textUIShowing = true
 end
 
 local function hideGarageTextUI()
-    lib.hideTextUI()
+    config.hideTextUI()
     textUIShowing = false
 end
--- ====================================================
+-- =============================================================
 
 local function toggleExtra(data)
     SetVehicleExtra(cache.vehicle, data.extra, data.state)
@@ -107,7 +94,7 @@ local function storeVehicle()
 
     config.removeVehicleKeys(cache.vehicle, plate)
     DeleteVehicle(cache.vehicle)
-    stevo_lib.Notify(locale("notify.storeVehicle"), "success", 3000)
+    config.sendNotification(locale("notify.storeVehicle"), "success", 3000)
 end
 
 local function changeColor(data)
@@ -129,7 +116,7 @@ end
 local function changePlate()
     local groupInfo = stevo_lib.GetPlayerGroupInfo(true)
 
-    if groupInfo.grade < config.minimumPlateGrade then lib.showContext('stevo_jobgarages_mechanic') return stevo_lib.Notify(locale("notify.notAuthorized"), "error", 5000) end
+    if groupInfo.grade < config.minimumPlateGrade then lib.showContext('stevo_jobgarages_mechanic') return config.sendNotification(locale("notify.notAuthorized"), "error", 5000) end
 
     local vehicle = GetVehiclePedIsIn(cache.ped, false)
 
@@ -140,9 +127,10 @@ local function changePlate()
     config.removeVehicleKeys(cache.vehicle, GetVehicleNumberPlateText(cache.vehicle))
 
     if input then
-        SetVehicleNumberPlateText(cache.vehicle, input[1])
+        SetVehicleNumberPlateText(vehicle, input[1])
         config.giveVehicleKeys(cache.vehicle, input[1])
-        stevo_lib.Notify(locale("notify.setPlate", input[1]), 'info', 4000)
+        lib.showContext('stevo_jobgarages_mechanic')
+        config.sendNotification(locale("notify.setPlate", input[1]), 'info', 4000)
     else
         lib.showContext('stevo_jobgarages_mechanic')
     end
@@ -150,7 +138,7 @@ end
 
 local function repairVehicle()
 
-    if progress({
+    if config.showProgress({
         duration = config.repairTime * 1000,
         position = 'bottom',
         label = locale('progress.repairingVehicle'),
@@ -159,21 +147,12 @@ local function repairVehicle()
         disable = { move = true, car = true, mouse = false, combat = true, },
     }) then
         SetVehicleFixed(cache.vehicle)
-        -- Refill fuel after repair (ox_fuel statebag)
-        if Entity and type(Entity) == 'function' then
-            pcall(function()
-                Entity(cache.vehicle).state.fuel = 100.0
-            end)
-        end
-        -- Debug: confirm statebag and native fuel after attempt to set
-        local okState, fuelState = pcall(function() return Entity(cache.vehicle).state.fuel end)
-        print(('stevo_jobgarages: repair -> state.fuel ok=%s value=%s'):format(tostring(okState), tostring(fuelState)))
-        local okNative, nativeFuel = pcall(function() return GetVehicleFuelLevel(cache.vehicle) end)
-        print(('stevo_jobgarages: repair -> GetVehicleFuelLevel ok=%s value=%s'):format(tostring(okNative), tostring(nativeFuel)))
-        stevo_lib.Notify(locale("notify.vehicleRepaired"), 'success', 3000)
+        -- Refill fuel after repair using config function
+        config.setVehicleFuel(cache.vehicle, 100.0)
+        config.sendNotification(locale("notify.vehicleRepaired"), 'success', 3000)
         lib.showContext('stevo_jobgarages_mechanic')
     else
-        stevo_lib.Notify(locale("notify.vehicleRepairCancelled"), 'error', 3000)
+        config.sendNotification(locale("notify.vehicleRepairCancelled"), 'error', 3000)
         lib.showContext('stevo_jobgarages_mechanic')
     end
 end
@@ -225,7 +204,7 @@ local function selectVehicle(data)
         DeleteVehicle(vehicle)
         lib.showContext(data.categoryMenuId)
 
-        return stevo_lib.Notify(locale("notify.cancelledSpawn"), "error", 3000)
+        return config.sendNotification(locale("notify.cancelledSpawn"), "error", 3000)
     end
 
     math.random()
@@ -238,20 +217,11 @@ local function selectVehicle(data)
     SetVehicleEngineOn(vehicle, true, true, true)
     applyMods(vehicle, data.mods)
     SetVehicleDirtLevel(vehicle, 0)
-    -- Set fuel to full using ox_fuel statebag API (if available)
-    if Entity and type(Entity) == 'function' then
-        pcall(function()
-            Entity(vehicle).state.fuel = 100.0
-        end)
-    end
-    -- Debug: confirm statebag and native fuel after attempt to set
-    local okState, fuelState = pcall(function() return Entity(vehicle).state.fuel end)
-    print(('stevo_jobgarages: spawn -> state.fuel ok=%s value=%s'):format(tostring(okState), tostring(fuelState)))
-    local okNative, nativeFuel = pcall(function() return GetVehicleFuelLevel(vehicle) end)
-    print(('stevo_jobgarages: spawn -> GetVehicleFuelLevel ok=%s value=%s'):format(tostring(okNative), tostring(nativeFuel)))
+    -- Set fuel to full using config function
+    config.setVehicleFuel(vehicle, 100.0)
     config.giveVehicleKeys(vehicle, data.plate)
 
-    stevo_lib.Notify(locale("notify.vehicleSpawned", data.label), "success", 3000)
+    config.sendNotification(locale("notify.vehicleSpawned", data.label), "success", 3000)
     menuOpen = false
 
     -- Ensure TextUI hides if it was still open
@@ -261,7 +231,7 @@ end
 local function openCategory(data)
     local groupInfo = stevo_lib.GetPlayerGroupInfo(true)
 
-    if groupInfo.grade < data.gradeRequired then lib.showContext(data.garageMenuId) return stevo_lib.Notify(locale("notify.notAuthorized"), "error", 5000) end
+    if groupInfo.grade < data.gradeRequired then lib.showContext(data.garageMenuId) return config.sendNotification(locale("notify.notAuthorized"), "error", 5000) end
 
     lib.showContext(data.categoryMenuId)
 end
