@@ -8,6 +8,28 @@ local textUIShowing = false
 local menuOpen = false
 local spawnCoords = vec4(0.0, 0.0, 0.0, 0.0)
 
+-- ============ helpers for ox_lib TextUI ============
+local function showGarageTextUI(title, action)
+    -- Simple, clear prompt. You can tweak position/style if you like.
+    -- Example positions: 'left-center', 'top-center', 'right-center'
+    lib.showTextUI(('%s\n[E] %s'):format(title or 'Garage', action or 'Open'), {
+        position = 'left-center',
+        icon = 'car',
+        style = {
+            borderRadius = 8,
+            backgroundColor = '#0f1117',
+            color = '#ffffff',
+            borderColor = '#18baf5'
+        }
+    })
+    textUIShowing = true
+end
+
+local function hideGarageTextUI()
+    lib.hideTextUI()
+    textUIShowing = false
+end
+-- ====================================================
 
 local function toggleExtra(data)
     SetVehicleExtra(cache.vehicle, data.extra, data.state)
@@ -20,11 +42,11 @@ local function toggleLivery(data)
 end
 
 function changeLiveries()
-	local liveries = {}
-	local liveryCount = GetVehicleLiveryCount(cache.vehicle)		
+    local liveries = {}
+    local liveryCount = GetVehicleLiveryCount(cache.vehicle)
 
-	for i = 1, liveryCount do
-		local vehicleLivery = GetVehicleLivery(cache.vehicle)
+    for i = 1, liveryCount do
+        local vehicleLivery = GetVehicleLivery(cache.vehicle)
         local currentLivery = vehicleLivery == i
 
         local livery = {
@@ -35,23 +57,23 @@ function changeLiveries()
             args = {livery = i}
         }
         table.insert(liveries, livery)
-	end
+    end
 
-	lib.registerContext({
-		id = 'stevo_jobgarages_liveries',
-		title = locale("menu.mechanicTitle"),
+    lib.registerContext({
+        id = 'stevo_jobgarages_liveries',
+        title = locale("menu.mechanicTitle"),
         menu = 'stevo_jobgarages_mechanic',
         options = liveries
-	})
-	lib.showContext('stevo_jobgarages_liveries')
+    })
+    lib.showContext('stevo_jobgarages_liveries')
 end
 
 function changeExtras()
-	local extras = {}
+    local extras = {}
 
-	for id = 0, 12 do
-		if DoesExtraExist(cache.vehicle, id) then
-			local state = IsVehicleExtraTurnedOn(cache.vehicle, id) 
+    for id = 0, 12 do
+        if DoesExtraExist(cache.vehicle, id) then
+            local state = IsVehicleExtraTurnedOn(cache.vehicle, id)
             local extra = {
                 title = locale("menu.extra", id),
                 icon = state and 'check' or 'x',
@@ -63,16 +85,16 @@ function changeExtras()
                 }
             }
             table.insert(extras, extra)
-		end
-	end
+        end
+    end
 
-	lib.registerContext({
-		id = 'stevo_jobgarages_extras',
-		title = locale("menu.mechanicTitle"),
+    lib.registerContext({
+        id = 'stevo_jobgarages_extras',
+        title = locale("menu.mechanicTitle"),
         menu = 'stevo_jobgarages_mechanic',
         options = extras
-	})
-	lib.showContext('stevo_jobgarages_extras')
+    })
+    lib.showContext('stevo_jobgarages_extras')
 end
 
 local function hex2rgb(hex)
@@ -89,25 +111,25 @@ local function storeVehicle()
 end
 
 local function changeColor(data)
-	local input = lib.inputDialog(locale("input.color"), {
-		{type = 'color', label = locale("input.colorLabel"), default = '#eb4034'},
-	})
-	if input then
-		local r, g, b = hex2rgb(input[1])
-		if data.primary then
-			SetVehicleCustomPrimaryColour(cache.vehicle, r or 255, g or 0, b or 0)
-			lib.showContext('stevo_jobgarages_paint')
-		else
-			SetVehicleCustomSecondaryColour(cache.vehicle, r or 255, g or 0, b or 0)
-			lib.showContext('stevo_jobgarages_paint')
-		end
-	end
+    local input = lib.inputDialog(locale("input.color"), {
+        {type = 'color', label = locale("input.colorLabel"), default = '#eb4034'},
+    })
+    if input then
+        local r, g, b = hex2rgb(input[1])
+        if data.primary then
+            SetVehicleCustomPrimaryColour(cache.vehicle, r or 255, g or 0, b or 0)
+            lib.showContext('stevo_jobgarages_paint')
+        else
+            SetVehicleCustomSecondaryColour(cache.vehicle, r or 255, g or 0, b or 0)
+            lib.showContext('stevo_jobgarages_paint')
+        end
+    end
 end
 
 local function changePlate()
     local groupInfo = stevo_lib.GetPlayerGroupInfo(true)
 
-    if groupInfo.grade < config.minimumPlateGrade then lib.showContext('stevo_jobgarages_mechanic') return stevo_lib.Notify(locale("notify.notAuthorized"), "error", 5000) end 
+    if groupInfo.grade < config.minimumPlateGrade then lib.showContext('stevo_jobgarages_mechanic') return stevo_lib.Notify(locale("notify.notAuthorized"), "error", 5000) end
 
     local vehicle = GetVehiclePedIsIn(cache.ped, false)
 
@@ -116,7 +138,7 @@ local function changePlate()
     })
 
     config.removeVehicleKeys(cache.vehicle, GetVehicleNumberPlateText(cache.vehicle))
-       
+
     if input then
         SetVehicleNumberPlateText(cache.vehicle, input[1])
         config.giveVehicleKeys(cache.vehicle, input[1])
@@ -135,8 +157,19 @@ local function repairVehicle()
         useWhileDead = false,
         canCancel = true,
         disable = { move = true, car = true, mouse = false, combat = true, },
-    }) then    
+    }) then
         SetVehicleFixed(cache.vehicle)
+        -- Refill fuel after repair (ox_fuel statebag)
+        if Entity and type(Entity) == 'function' then
+            pcall(function()
+                Entity(cache.vehicle).state.fuel = 100.0
+            end)
+        end
+        -- Debug: confirm statebag and native fuel after attempt to set
+        local okState, fuelState = pcall(function() return Entity(cache.vehicle).state.fuel end)
+        print(('stevo_jobgarages: repair -> state.fuel ok=%s value=%s'):format(tostring(okState), tostring(fuelState)))
+        local okNative, nativeFuel = pcall(function() return GetVehicleFuelLevel(cache.vehicle) end)
+        print(('stevo_jobgarages: repair -> GetVehicleFuelLevel ok=%s value=%s'):format(tostring(okNative), tostring(nativeFuel)))
         stevo_lib.Notify(locale("notify.vehicleRepaired"), 'success', 3000)
         lib.showContext('stevo_jobgarages_mechanic')
     else
@@ -149,7 +182,7 @@ local function applyMods(vehicle, mods)
     if mods.extras then
         for _, extra in ipairs(mods.extras) do
             SetVehicleExtra(vehicle, extra.id, extra.disabled)
-        end   
+        end
     end
     if mods.livery then
         SetVehicleLivery(vehicle, mods.livery)
@@ -161,26 +194,20 @@ end
 
 local function selectVehicle(data)
     menuOpen = true
-    local modelValid = IsModelValid(data.model)
-    if modelValid ~= true then 
-        stevo_lib.Notify(locale("notify.invalidModel"), 'error', 3000)
-        return 
-    end 
     local model = lib.requestModel(data.model)
     local coords = spawnCoords
     local vehicle = CreateVehicle(model, coords.x, coords.y, coords.z, coords.w, false, true)
-    
 
-	SetVehicleNumberPlateText(vehicle, 'PREVIEW')
-	SetPedIntoVehicle(cache.ped, vehicle, -1)
-	SetVehicleEngineOn(vehicle, false, false, true)
+    SetVehicleNumberPlateText(vehicle, 'PREVIEW')
+    SetPedIntoVehicle(cache.ped, vehicle, -1)
+    SetVehicleEngineOn(vehicle, false, false, true)
     SetVehicleHandbrake(vehicle, true)
     SetVehicleInteriorlight(vehicle, true)
     FreezeEntityPosition(vehicle, true)
     SetEntityAsMissionEntity(vehicle, true, true)
-	if data.mods then 
-    	applyMods(vehicle, data.mods)
-			end
+    if data.mods then
+        applyMods(vehicle, data.mods)
+    end
     SetVehicleDirtLevel(vehicle, 0)
 
     local alert = lib.alertDialog({
@@ -194,12 +221,12 @@ local function selectVehicle(data)
         }
     })
 
-    if alert ~= 'confirm' then 
+    if alert ~= 'confirm' then
         DeleteVehicle(vehicle)
         lib.showContext(data.categoryMenuId)
 
         return stevo_lib.Notify(locale("notify.cancelledSpawn"), "error", 3000)
-    end 
+    end
 
     math.random()
     DeleteVehicle(vehicle)
@@ -208,19 +235,33 @@ local function selectVehicle(data)
     SetVehicleNumberPlateText(vehicle, data.plate)
 
     SetPedIntoVehicle(cache.ped, vehicle, -1)
-	SetVehicleEngineOn(vehicle, true, true, true)
+    SetVehicleEngineOn(vehicle, true, true, true)
     applyMods(vehicle, data.mods)
     SetVehicleDirtLevel(vehicle, 0)
+    -- Set fuel to full using ox_fuel statebag API (if available)
+    if Entity and type(Entity) == 'function' then
+        pcall(function()
+            Entity(vehicle).state.fuel = 100.0
+        end)
+    end
+    -- Debug: confirm statebag and native fuel after attempt to set
+    local okState, fuelState = pcall(function() return Entity(vehicle).state.fuel end)
+    print(('stevo_jobgarages: spawn -> state.fuel ok=%s value=%s'):format(tostring(okState), tostring(fuelState)))
+    local okNative, nativeFuel = pcall(function() return GetVehicleFuelLevel(vehicle) end)
+    print(('stevo_jobgarages: spawn -> GetVehicleFuelLevel ok=%s value=%s'):format(tostring(okNative), tostring(nativeFuel)))
     config.giveVehicleKeys(vehicle, data.plate)
 
     stevo_lib.Notify(locale("notify.vehicleSpawned", data.label), "success", 3000)
     menuOpen = false
+
+    -- Ensure TextUI hides if it was still open
+    if textUIShowing then hideGarageTextUI() end
 end
 
 local function openCategory(data)
     local groupInfo = stevo_lib.GetPlayerGroupInfo(true)
 
-    if groupInfo.grade < data.gradeRequired then lib.showContext(data.garageMenuId) return stevo_lib.Notify(locale("notify.notAuthorized"), "error", 5000) end 
+    if groupInfo.grade < data.gradeRequired then lib.showContext(data.garageMenuId) return stevo_lib.Notify(locale("notify.notAuthorized"), "error", 5000) end
 
     lib.showContext(data.categoryMenuId)
 end
@@ -228,41 +269,43 @@ end
 local function onEnter(self)
     local groupInfo = stevo_lib.GetPlayerGroupInfo(true)
     self.playerGroup = groupInfo.name
-
 end
- 
+
 local function onExit(self)
     self.playerGroup = false
 
-    if textUIShowing then 
-        lib.hideTextUI()
-        textUIShowing = false
+    if textUIShowing then
+        hideGarageTextUI()
     end
 end
- 
+
 local function nearby(self)
-    if self.playerGroup ~= self.groupRequired then return end
+    if self.playerGroup ~= self.groupRequired then
+        if textUIShowing then hideGarageTextUI() end
+        return
+    end
 
     local openDistance = cache.vehicle and config.vehicleOpenDistance or config.openDistance
 
     DrawMarker(self.garageMarker.type, self.menuCoords.x, self.menuCoords.y, self.menuCoords.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, self.garageMarker.size, self.garageMarker.size, self.garageMarker.size, self.garageMarker.r, self.garageMarker.g, self.garageMarker.b, self.garageMarker.alpha, false, true, 2, false, nil, nil, false)
- 
-    if self.currentDistance < openDistance and not textUIShowing and not menuOpen then 
-        lib.showTextUI(locale("textui.opengarage"))
-        textUIShowing = true
+
+    -- Show hint when in range and no menu is open
+    if self.currentDistance < openDistance and not textUIShowing and not menuOpen then
+        showGarageTextUI(self.label or "Garage", "Open")
     end
 
-    if self.currentDistance > openDistance and textUIShowing then 
-        lib.hideTextUI()
-        textUIShowing = false
+    -- Hide hint when out of range or when a menu is open
+    if (self.currentDistance > openDistance or menuOpen) and textUIShowing then
+        hideGarageTextUI()
     end
-    
+
     if self.currentDistance < openDistance and IsControlJustReleased(0, 38) then
-
         spawnCoords = self.spawnCoords
-        if cache.vehicle then 
+        if textUIShowing then hideGarageTextUI() end
+
+        if cache.vehicle then
             lib.showContext('stevo_jobgarages_invehicle')
-        else 
+        else
             lib.showContext(self.garageMenuId)
         end
         menuOpen = true
@@ -270,11 +313,11 @@ local function nearby(self)
 end
 
 local function initGarages()
-    for garageId, garage in pairs(config.garages) do 
+    for garageId, garage in pairs(config.garages) do
         local garageCategories = {}
         local garageMenuId = 'stevo_jobgarages_'..garageId
 
-        for categoryId, category in pairs(garage.categories) do 
+        for categoryId, category in pairs(garage.categories) do
             local categoryMenuId = 'stevo_jobgarages_'..garageId..'_'..categoryId
             local categoryVehicles = {}
             local newCategory = {
@@ -286,7 +329,7 @@ local function initGarages()
             }
             table.insert(garageCategories, newCategory)
 
-            for _, vehicle in pairs(category.vehicles) do 
+            for _, vehicle in pairs(category.vehicles) do
                 local newVehicle = {
                     title = vehicle.label,
                     icon = vehicle.icon,
@@ -308,17 +351,18 @@ local function initGarages()
             })
         end
 
-
         lib.registerContext({
             id = garageMenuId,
             title = garage.name,
             options = garageCategories,
             onExit = function()
                 menuOpen = false
+                -- Hide TextUI if user backed out of menus while in range
+                if textUIShowing then hideGarageTextUI() end
             end
         })
 
-        for locationId, location in pairs(garage.locations) do 
+        for locationId, location in pairs(garage.locations) do
             garagePoints[locationId] = lib.points.new({
                 coords = location.menuCoords,
                 distance = garage.distance,
@@ -338,77 +382,77 @@ local function initGarages()
 end
 
 lib.registerContext({
-	id = 'stevo_jobgarages_paint',
+    id = 'stevo_jobgarages_paint',
     menu = 'stevo_jobgarages_mechanic',
-	title = locale("menu.mechanicTitle"),
-	options = {
-	  {
-		title = locale("menu.changePrimaryColor"),
-		icon = '1',
-		onSelect = changeColor,
+    title = locale("menu.mechanicTitle"),
+    options = {
+      {
+        title = locale("menu.changePrimaryColor"),
+        icon = '1',
+        onSelect = changeColor,
         args = {primary = true}
-	  },
-	  {
-		title = locale("menu.changeSecondaryColor"),
-		icon = '2',
-		onSelect = changeColor,
+      },
+      {
+        title = locale("menu.changeSecondaryColor"),
+        icon = '2',
+        onSelect = changeColor,
         args = {primary = false}
-	  },
-	}
+      },
+    }
 })
 
 lib.registerContext({
-	id = 'stevo_jobgarages_invehicle',
-	title = locale("menu.inVehicle"),
-	options = {
-	  {
-		title = locale("menu.mechanicTitle"),
-		icon = 'toolbox',
+    id = 'stevo_jobgarages_invehicle',
+    title = locale("menu.inVehicle"),
+    options = {
+      {
+        title = locale("menu.mechanicTitle"),
+        icon = 'toolbox',
         menu = 'stevo_jobgarages_mechanic'
-	  },
-	  {
-		title = locale("menu.storeVehicle"),
-		icon = 'x',
+      },
+      {
+        title = locale("menu.storeVehicle"),
+        icon = 'x',
         arrow = true,
         onSelect = storeVehicle
-	  },
-	}
+      },
+    }
 })
 
 lib.registerContext({
-	id = 'stevo_jobgarages_mechanic',
-	title = locale("menu.mechanicTitle"),
-	options = {
-	    {
+    id = 'stevo_jobgarages_mechanic',
+    title = locale("menu.mechanicTitle"),
+    options = {
+        {
             title = locale("menu.changeExtras"),
             icon = 'plus',
             onSelect = changeExtras,
             arrow = true
-	    },
-	    {
+        },
+        {
             title = locale("menu.changeLivery"),
             icon = 'note-sticky',
             onSelect = changeLiveries,
             arrow = true
-	    },
-	    {
+        },
+        {
             title = locale("menu.changeColor"),
             icon = 'brush',
             menu = 'stevo_jobgarages_paint'
-	    },
-	    {
+        },
+        {
             title = locale("menu.repairVehicle"),
             icon = 'toolbox',
             onSelect = repairVehicle,
             arrow = true
-	    },
-	    {
+        },
+        {
             title = locale("menu.changePlate"),
             icon = 't',
             onSelect = changePlate,
             arrow = true
-	    }
-	}
+        }
+    }
 })
 
 RegisterNetEvent('stevo_lib:playerLoaded', function()
@@ -417,6 +461,5 @@ end)
 
 AddEventHandler('onResourceStart', function(resource)
     if resource ~= cache.resource then return end
-
     initGarages()
 end)

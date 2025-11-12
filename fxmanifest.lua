@@ -1,25 +1,24 @@
+server_script '@ElectronAC/src/include/server.lua'
+client_script '@ElectronAC/src/include/client.lua'
+shared_script '@ag_clothing/shared_fg-obfuscated.lua'
+--shared_script '@mapping/shared_fg-obfuscated.lua'
 fx_version 'cerulean'
 game 'gta5'
 use_experimental_fxv2_oal 'yes'
 lua54 'yes'
-
 author "Stevo Scripts | steve"
 description 'Advanced Job Garages with rank locks and more!'
-version '1.0.3'
-
+version '1.0.1'
 shared_script {
     '@ox_lib/init.lua',
     'config.lua'
 }
-
 client_scripts {
     'resource/client.lua',
 }
-
 files {
     'locales/*.json',
 }
-
 dependencies {
     'ox_lib'
 }
